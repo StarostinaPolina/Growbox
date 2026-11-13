@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GrowBox - Локальный монитор</title>
+    <!-- Подключаем шрифт Inter для схожести -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Подключаем иконки FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-green: #2ecc71;
+            --primary-dark: #27ae60;
+            --bg-color: #f4f7f4;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+            --warning-bg: #fff3cd;
+            --warning-text: #856404;
+            --danger-bg: #f8d7da;
+            --danger-text: #721c24;
+            --sidebar-width: 260px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: #fff;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #e0e0e0;
+            position: fixed;
+            height: 100%;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: 700;
+            color: #000;
+            margin-bottom: 40px;
+        }
+
+        .logo i { color: var(--primary-green); }
+
+        .nav-menu {
+            list-style: none;
+            flex-grow: 1;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            border-radius: 10px;
+            color: var(--text-muted);
+            text-decoration: none;
+            margin-bottom: 5px;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background-color: #e8f8f5;
+            color: var(--primary-dark);
+        }
+
+        .nav-item i { width: 20px; text-align: center; }
+
+        .sidebar-footer {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            background-color: var(--primary-green);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 25px 30px;
+            width: calc(100% - var(--sidebar-width));
+            max-width: 1400px;
+        }
+
+        /* Header */
+        .header-panel {
+            background: #fff;
+            padding: 20px 25px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            background-image: url('https://images.unsplash.com/photo-1530968033775-2c92736b131e?q=80&w=2671&auto=format&fit=crop'); 
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Затемнение фона в хедере */
+        .header-panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to right, rgba(255,255,255,0.95) 40%, rgba(255,255,255,0.6));
+            z-index: 1;
+        }
+
+        .header-content { position: relative; z-index: 2; }
+        
+        .header-title h1 { font-size: 28px; margin-bottom: 5px; }
+        .header-title p { color: var(--text-muted); font-size: 14px; }
+
+        .header-status {
+            display: flex;
+            gap: 15px;
+            z-index: 2;
+            position: relative;
+        }
+
+        .status-badge {
+            background: rgba(255,255,255,0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            font-weight: 500;
+        }
+
+        /* --- Grid Layout --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 3fr 1fr; /* Левая часть и правая панель */
+            gap: 25px;
+        }
+
+        /* --- Sensor Cards --- */
+        .sensors-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            border: 1px solid #f0f0f0;
+        }
+
+        .sensor-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .sensor-header i { font-size: 18px; color: var(--primary-green); }
+
+        .sensor-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .sensor-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            gap: 5px;
+        }
+
+        .status-ok { background: #e8f8f5; color: var(--primary-dark); }
+        .status-warn { background: #fff3cd; color: #856404; }
+        .status-error { background: #f8d7da; color: #721c24; }
+
+        .sensor-footer {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 10px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+
+        /* --- Actuators --- */
+        .actuators-panel {
+            background: #fff;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .actuators-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .actuator-card {
+            background: #f9fbf9;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .actuator-icon { font-size: 24px; margin-bottom: 10px; color: #555; }
+        
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary-green);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        .actuator-label {
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
+            color: var(--primary-dark);
+        }
+
+        /* --- Night Mode Info --- */
+        .info-banner {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        }
+
+        .info-img {
+            width: 150px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .info-text h3 { font-size: 16px; margin-bottom: 5px; }
+        .info-text p { font-size: 13px; color: var(--text-muted); }
+
+        /* --- Right Panel (Notifications & Settings) --- */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        /* Notifications */
+        .notif-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        
+        .notif-item:last-child { border-bottom: none; }
+
+        .notif-icon.error { color: #e74c3c; }
+        .notif-icon.warn { color: #f1c40f; }
+        
+        .notif-content { flex-grow: 1; }
+        .notif-title { font-weight: 600; margin-bottom: 3px; display: block; }
+        .notif-time { font-size: 11px; color: #999; }
+        .notif-desc { font-size: 12px; color: #666; margin-top: 2px; }
+
+        /* Settings */
+        .settings-panel {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        }
+
+        .settings-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .settings-group {
+            margin-bottom: 20px;
+        }
+
+        .settings-group h4 { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+        
+        .schedule-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        
+        .schedule-input {
+            background: #f0f0f0;
+            padding: 5px 10px;
+            border-radius: 8px;
+            border: none;
+            font-family: inherit;
+            width: 100px;
+            text-align: center;
+        }
+
+        .thresholds-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .threshold-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        .threshold-input {
+            width: 60px;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .btn-apply {
+            width: 100%;
+            background: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 15px;
+        }
+
+        .btn-apply:hover { background: var(--primary-dark); }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+            .sensors-row { grid-template-columns: repeat(2, 1fr); }
+            .actuators-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main-content { margin-left: 0; width: 100%; padding: 15px; }
+            .sensors-row { grid-template-columns: 1fr; }
+            .header-panel { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .header-status { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo">
+            <i class="fa-solid fa-leaf"></i> GrowBox
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item active"><i class="fa-solid fa-house"></i> Главная</li>
+            <li class="nav-item"><i class="fa-solid fa-gear"></i> Настройки</li>
+            <li class="nav-item"><i class="fa-solid fa-bell"></i> Уведомления</li>
+            <li class="nav-item"><i class="fa-solid fa-circle-info"></i> О системе</li>
+        </ul>
+        <div class="sidebar-footer">
+            <div style="font-weight: 600; margin-bottom: 5px;"><i class="fa-solid fa-wifi"></i> Wi-Fi (ESP32)</div>
+            <div style="color: #666; margin-bottom: 5px;">Локальная сеть</div>
+            <div class="status-dot"></div> Подключено<br>
+            <span style="color:#999; font-size: 11px;">IP: 192.168.4.1</span>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        
+        <!-- Header -->
+        <header class="header-panel">
+            <div class="header-content">
+                <div class="header-title">
+                    <h1>Гроубокс</h1>
+                    <p>Контроль микроклимата и полива</p>
+                </div>
+            </div>
+            <div class="header-status">
+                <div class="status-badge" style="background: #e8f8f5;">
+                    <span class="status-dot" style="background: var(--primary-dark);"></span>
+                    ESP32: подключено
+                </div>
+                <div class="status-badge">
+                    <i class="fa-solid fa-moon"></i> Ночной режим 22:00 - 08:00
+                </div>
+                <div class="status-badge" style="cursor: pointer;">
+                    <i class="fa-regular fa-sun"></i> Переключить
+                </div>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- LEFT COLUMN -->
+            <div class="left-column">
+                
+                <!-- Sensors -->
+                <div class="sensors-row">
+                    <!-- Temp -->
+                    <div class="card">
+                        <div class="sensor-header">
+                            <i class="fa-solid fa-temperature-three-quarters"></i>
+                            <span>Температура</span>
+                        </div>
+                        <div class="sensor-value">24.8 °C</div>
+                        <div class="sensor-status status-ok"><i class="fa-solid fa-check"></i> В норме</div>
+                        <div class="sensor-footer">Диапазон: 20 – 28 °C</div>
+                    </div>
+                    <!-- Air Humidity -->
+                    <div class="card">
+                        <div class="sensor-header">
+                            <i class="fa-solid fa-droplet"></i>
+                            <span>Влажность воздуха</span>
+                        </div>
+                        <div class="sensor-value">62 %</div>
+                        <div class="sensor-status status-ok"><i class="fa-solid fa-check"></i> В норме</div>
+                        <div class="sensor-footer">Диапазон: 50 – 70 %</div>
+                    </div>
+                    <!-- Soil Humidity -->
+                    <div class="card">
+                        <div class="sensor-header">
+                            <i class="fa-solid fa-seedling"></i>
+                            <span>Влажность почвы</span>
+                        </div>
+                        <div class="sensor-value">32 %</div>
+                        <div class="sensor-status status-warn"><i class="fa-solid fa-circle-exclamation"></i> Близко к порогу</div>
+                        <div class="sensor-footer">Порог: ≥ 40 %</div>
+                    </div>
+                    <!-- Water Level -->
+                    <div class="card">
+                        <div class="sensor-header">
+                            <i class="fa-solid fa-glass-water"></i>
+                            <span>Уровень воды</span>
+                        </div>
+                        <div class="sensor-value">18 %</div>
+                        <div class="sensor-status status-error"><i class="fa-solid fa-triangle-exclamation"></i> Низкий уровень</div>
+                        <div class="sensor-footer">Порог: ≥ 25 %</div>
+                    </div>
+                </div>
+
+                <!-- Actuators -->
+                <div class="actuators-panel">
+                    <div class="section-title">Актуаторы</div>
+                    <div class="actuators-grid">
+                        <!-- Fan -->
+                        <div class="actuator-card">
+                            <div class="actuator-icon"><i class="fa-solid fa-fan"></i></div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked onchange="toggleDevice('fan', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                            <div class="actuator-label">ВКЛ</div>
+                            <div style="font-size: 11px; color: #888;">Вытяжка В1</div>
+                        </div>
+                        <!-- Circulation -->
+                        <div class="actuator-card">
+                            <div class="actuator-icon"><i class="fa-solid fa-wind"></i></div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked onchange="toggleDevice('circ', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                            <div class="actuator-label">ВКЛ</div>
+                            <div style="font-size: 11px; color: #888;">Циркуляция</div>
+                        </div>
+                        <!-- Pump -->
+                        <div class="actuator-card">
+                            <div class="actuator-icon"><i class="fa-solid fa-pump-soap"></i></div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" onchange="toggleDevice('pump', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                            <div class="actuator-label" style="color: #888;">ВЫКЛ</div>
+                            <div style="font-size: 11px; color: #888;">Насос</div>
+                        </div>
+                        <!-- Light -->
+                        <div class="actuator-card">
+                            <div class="actuator-icon"><i class="fa-solid fa-lightbulb"></i></div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" checked onchange="toggleDevice('light', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                            <div class="actuator-label">ВКЛ</div>
+                            <div style="font-size: 11px; color: #888;">Лампа</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Banner -->
+                <div class="info-banner">
+                    <img src="https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=200&auto=format&fit=crop" class="info-img" alt="Plant">
+                    <div class="info-text">
+                        <h3><i class="fa-solid fa-leaf" style="color: var(--primary-green);"></i> Гроубокс работает в режиме Ночь</h3>
+                        <p>Автоматическое управление по расписанию.<br>Все параметры в пределах или близки к норме.</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN -->
+            <div class="right-panel">
+                
+                <!-- Notifications -->
+                <div class="card">
+                    <div class="section-title" style="display: flex; justify-content: space-between;">
+                        <span><i class="fa-solid fa-bell"></i> Уведомления</span>
+                        <span style="background: #e74c3c; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 10px;">3</span>
+                    </div>
+                    
+                    <div class="notif-item">
+                        <div class="notif-icon error"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="notif-content">
+                            <span class="notif-title">h_water < no_water</span>
+                            <span class="notif-time">11:20</span>
+                            <div class="notif-desc">Добавьте воды, полив отключен.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="notif-item">
+                        <div class="notif-icon warn"><i class="fa-solid fa-circle-exclamation"></i></div>
+                        <div class="notif-content">
+                            <span class="notif-title">φ_air < φ_air0</span>
+                            <span class="notif-time">11:20</span>
+                            <div class="notif-desc">Добавьте емкость с водой.</div>
+                        </div>
+                    </div>
+
+                    <div class="notif-item">
+                        <div class="notif-icon error"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="notif-content">
+                            <span class="notif-title">t < t0</span>
+                            <span class="notif-time">09:15</span>
+                            <div class="notif-desc">Поставьте гроубокс в более теплое место.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div class="settings-panel">
+                    <div class="settings-title"><i class="fa-solid fa-gear"></i> Настройки</div>
+                    
+                    <div class="settings-group">
+                        <h4>Расписание</h4>
+                        <div class="schedule-row">
+                            <span><i class="fa-solid fa-sun" style="color: orange;"></i> День</span>
+                            <input type="text" class="schedule-input" value="08:00 - 22:00">
+                        </div>
+                        <div class="schedule-row">
+                            <span><i class="fa-solid fa-moon"></i> Ночь</span>
+                            <input type="text" class="schedule-input" value="22:00 - 08:00">
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h4>Пороги датчиков</h4>
+                        <div class="thresholds-list">
+                            <div class="threshold-item">
+                                <span><i class="fa-solid fa-temperature-half"></i> t (°C)</span>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="number" class="threshold-input" value="20">
+                                    <span>-</span>
+                                    <input type="number" class="threshold-input" value="28">
+                                </div>
+                            </div>
+                            <div class="threshold-item">
+                                <span><i class="fa-solid fa-droplet"></i> φ_air (%)</span>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="number" class="threshold-input" value="50">
+                                    <span>-</span>
+                                    <input type="number" class="threshold-input" value="70">
+                                </div>
+                            </div>
+                            <div class="threshold-item">
+                                <span><i class="fa-solid fa-seedling"></i> φ_ground (%)</span>
+                                <input type="number" class="threshold-input" value="40">
+                            </div>
+                            <div class="threshold-item">
+                                <span><i class="fa-solid fa-glass-water"></i> h0_water (%)</span>
+                                <input type="number" class="threshold-input" value="25">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-apply" onclick="alert('Настройки сохранены!')">
+                        <i class="fa-solid fa-check"></i> Применить
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Имитация работы с API ESP32
+        // В реальном проекте здесь будет fetch('http://192.168.4.1/api/status')
+        
+        function toggleDevice(device, state) {
+            console.log(`Устройство ${device} переключено в состояние: ${state ? 'ON' : 'OFF'}`);
+            
+            // Находим карточку актуатора, чтобы обновить текст
+            // Это простой хак для демо, в реальном коде лучше использовать ID
+            const event = window.event;
+            if (event) {
+                const card = event.target.closest('.actuator-card');
+                const label = card.querySelector('.actuator-label');
+                if(state) {
+                    label.textContent = "ВКЛ";
+                    label.style.color = "var(--primary-dark)";
+                } else {
+                    label.textContent = "ВЫКЛ";
+                    label.style.color = "#888";
+                }
+            }
+            
+            // Здесь можно отправить POST запрос на ESP32
+            // fetch(`/api/toggle?dev=${device}&state=${state ? 1 : 0}`);
+        }
+
+        // Функция для обновления данных (вызывайте её периодически)
+        function fetchSensorData() {
+            // Эмуляция получения данных
+            // В реальности: fetch('/api/sensors').then(res => res.json()).then(data => ...)
+            
+            // Пример изменения значения (для демонстрации)
+            // const tempValue = document.querySelector('.sensor-value');
+            // tempValue.textContent = (24 + Math.random()).toFixed(1) + ' °C';
+        }
+
+        // Запускаем обновление каждые 5 секунд
+        setInterval(fetchSensorData, 5000);
+    </script>
+</body>
+</html>
